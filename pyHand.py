@@ -12,12 +12,12 @@ handArray = [i for i in range(256)]
 ser = serial.Serial('COM5', 9600)
 
 while True:
-    data = ser.readline()
-    data = data.decode().strip() # Decode the received bytes and remove extra whitespace
-	
+	data = ser.readline()
+	data = data.decode().strip() # Decode the received bytes and remove extra whitespace
 	if (data == oldData):
-		i = 0;
-	else
+		i = 0
+	else:
+		pass
 	if i < 8:
 		for k in range(8):
 			handArray((8*k)+i) = input(k)
