@@ -21,6 +21,9 @@ const int sel0 = 6;
 const int sel1 = 7;
 const int sel2 = 8;
 
+//speaker output port
+const int pwmPin = 5;  // D5 pin for PWM output
+
 //delay constant between each select signal
 const int  wait = 1;
 
@@ -28,14 +31,11 @@ const int  wait = 1;
 //it has 1023 steps between 0 to 5V so 205 is about 1V
 const int thresh = 205;
 
-//varaibles
+//variables
 bool Go = false;
 
+long freq = 0;
 int selectIndex = 0;
-
-int avg;
-
-int refv;
 
 //select signal 2D array
 byte selectSig[32][7] = {
@@ -82,18 +82,37 @@ int compareAnalogRead(int inputPin, int referencePin, int threshold) {
   int inputValue = analogRead(inputPin);
   int referenceValue = analogRead(referencePin);
   return (inputValue - referenceValue);
-  if (inputValue > referenceValue + threshold) {
-    return 1;
-  } else {
-    return 0;
-  }
+  // if (inputValue > referenceValue + threshold) {
+  //   return 1;
+  // } else {
+  //   return 0;
+  // }
 }
 
+void setFreq(long f) {
+  if (f == 0) {
+    ICR3 = 0;
+    OCR3A = 0;
+  } else {
+    ICR3 = 2*pow(10,6)/f - 1;                   // Set the PWM frequency to f = (16MHz / (8 * (ICR3 + 1)))
+    OCR3A = ICR3/2;                             // Set duty-cycle to 50% on pwmPin
+  }
+}
 
 
 void setup() {
   //est connection between arduino and computer
   Serial.begin(9600);
+  //init all the analog inputs as inputs
+  pinMode(input0, INPUT);
+  pinMode(input1, INPUT);
+  pinMode(input2, INPUT);
+  pinMode(input3, INPUT);
+  pinMode(input4, INPUT);
+  pinMode(input5, INPUT);
+  pinMode(input6, INPUT);
+  pinMode(input7, INPUT);
+  
   //init all the digital select outputs as outputs
   pinMode(CE0, OUTPUT);
   pinMode(CE1, OUTPUT);
@@ -105,22 +124,36 @@ void setup() {
 
   //to see if its collecting 
   pinMode(LED_BUILTIN, OUTPUT);
+
+  pinMode(pwmPin, OUTPUT);                          // Set pwm sound output pin to an output
+  TCCR3A = _BV(COM3A1) | _BV(COM3B1) | _BV(WGM31);  // Enable PWM outputs for OC1A and OC1B on digital pins 9, 10
+  TCCR3B = _BV(WGM33) | _BV(WGM32) | _BV(CS31);     // Set fast PWM and prescaler of 8 on timer 1
+  setFreq(freq);
 }
 
 void loop() {
 
   //Type g in serial monitor to start and stop
-  if (Serial.available()) {
+  if (Serial.available() > 0) {
     char gatherData = Serial.read();
     if (gatherData == 'g') {
       Go = !Go;
+    } else if (gatherData == 'f') {
+      String fs = "";
+      while (Serial.available() > 0) {
+        char rc = Serial.read();
+        fs += rc;
+      }
+      int f = fs.toInt();
+      setFreq(f);
     }
   }
+
   //if collecting the LED is on else its off
-  if (Go == true) {
+  if (Go) {
     digitalWrite(LED_BUILTIN, HIGH);
   }
-  else if (Go == false) {
+  else {
     digitalWrite(LED_BUILTIN, LOW);
   }
 
@@ -161,27 +194,10 @@ void loop() {
     Serial.print(" ");
     Serial.print(compareAnalogRead(input7, ref, thresh));
     Serial.print("\n");
-    
 
-    // avg = ((analogRead(input0) + analogRead(input1) + analogRead(input2) + analogRead(input3) + analogRead(input4) + analogRead(input5) +analogRead(input6) + analogRead(input7))/8);
-    // Serial.print(avg);
-    // Serial.print("\n");
-    
-    // Serial.print(analogRead(ref));
-    // Serial.print("\n");
-    
-    // if (Go) {
-    //   Go = false;
-    // }
-
-    selectIndex = selectIndex + 1;
-    if (selectIndex == 32) {
-      selectIndex = 0;
-    }
-  
+    selectIndex = (selectIndex + 1) % 32;
   }
   else {
-    // Serial.println("111111111111111");
     digitalWrite(CE0, HIGH);
     digitalWrite(CE1, HIGH);
     digitalWrite(CE2, HIGH);
@@ -190,31 +206,4 @@ void loop() {
     digitalWrite(sel1, LOW);
     digitalWrite(sel2, LOW);
   }
-
-  delay(wait);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
